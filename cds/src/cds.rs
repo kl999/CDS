@@ -1,5 +1,6 @@
 use std::{
-    collections::HashMap, sync::{Arc, Mutex}
+    collections::HashMap,
+    sync::{Arc, Mutex},
 };
 
 pub struct Cds {
@@ -16,25 +17,56 @@ impl Cds {
     }
 
     pub fn set_key(&mut self, key: String, val: String) -> Result<(), String> {
-        let mut collection = self.collection.lock()
+        let mut collection = self
+            .collection
+            .lock()
             .map_err(|x| format!("col lock!\n{}", x))?;
-        
+
         let cell = collection.get_mut(&key);
 
         if let Some(cell) = cell {
             cell.client_id = self.client_id;
             cell.version = cell.version + 1;
             cell.value = val;
-        }
-        else {
+        } else {
             collection.insert(key, Cell::new(self.client_id, val));
         }
 
         Ok(())
     }
 
+    fn set_key_foreign(
+        &mut self,
+        key: String,
+        val: String,
+        client_id: u32,
+        version: u64,
+    ) -> Result<(), String> {
+        let mut collection = self
+            .collection
+            .lock()
+            .map_err(|x| format!("col lock!\n{}", x))?;
+
+        let cell = collection.get_mut(&key);
+
+        if let Some(cell) = cell {
+            if version > cell.version || version == cell.version && client_id < self.client_id {
+                cell.client_id = client_id;
+                cell.version = version;
+                cell.value = val;
+            }
+            //else version < cell.version do nothing
+        } else {
+            collection.insert(key, Cell{ client_id, version, value: val });
+        }
+
+        Ok(())
+    }
+
     pub fn get_key(&self, key: String) -> Result<Option<String>, String> {
-        let collection = self.collection.lock()
+        let collection = self
+            .collection
+            .lock()
             .map_err(|x| format!("col lock!\n{}", x))?;
         let val = collection.get(&key);
 
@@ -49,11 +81,15 @@ impl Cds {
 pub struct Cell {
     pub client_id: u32,
     pub version: u64,
-    pub value: String
+    pub value: String,
 }
 
 impl Cell {
     pub fn new(client_id: u32, value: String) -> Cell {
-        Cell { client_id, version: 0, value }
+        Cell {
+            client_id,
+            version: 0,
+            value,
+        }
     }
 }
