@@ -39,6 +39,10 @@ impl SocketWorker {
         self.outgoing.push_back(msg);
     }
 
+    pub fn ping(){
+        todo!()
+    }
+
     fn send_acc_message(&mut self, id: u64) {
         let msg = Message::new_acc(id);
         self.outgoing.push_front(msg);

@@ -76,6 +76,23 @@ impl Cds {
 
         Ok(None)
     }
+
+    //fn define_client_id(&mut self){}
+    // Workflow:
+    // 1. Connect to ANY bootstrap peer
+    // 2. Request peer list
+    // 3. Find peer with highest ID
+    // 4. Connect to that peer
+    // 5. Request ID assignment
+    // 6. Get new_id = max_id + 1
+    // 7. Announce yourself to all peers
+    // 8. You are now the "last" peer (until someone else joins)
+
+    fn work(&mut self) {
+        //see if key was added/updated
+
+        //work on every connection
+    }
 }
 
 pub struct Cell {
