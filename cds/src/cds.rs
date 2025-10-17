@@ -1,11 +1,15 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, VecDeque},
     sync::{Arc, Mutex},
 };
+
+use crate::peer::Peer;
 
 pub struct Cds {
     pub client_id: u32,
     collection: Arc<Mutex<HashMap<String, Cell>>>,
+    keys_to_push: Arc<Mutex<VecDeque<(String, String)>>>,
+    peers: Arc<Mutex<Vec<Peer>>>,
 }
 
 impl Cds {
@@ -13,6 +17,8 @@ impl Cds {
         Ok(Cds {
             client_id,
             collection: Arc::new(Mutex::new(HashMap::new())),
+            keys_to_push: Arc::new(Mutex::new(VecDeque::with_capacity(50))),
+            peers: Arc::new(Mutex::new(vec![])),
         })
     }
 
@@ -27,10 +33,16 @@ impl Cds {
         if let Some(cell) = cell {
             cell.client_id = self.client_id;
             cell.version = cell.version + 1;
-            cell.value = val;
+            cell.value = val.clone();
         } else {
-            collection.insert(key, Cell::new(self.client_id, val));
+            collection.insert(key.clone(), Cell::new(self.client_id, val.clone()));
         }
+
+        let mut keys_to_push = self.keys_to_push
+            .lock()
+            .map_err(|x| format!("keys push lock!\n{}", x))?;
+        
+        keys_to_push.push_back((key, val));
 
         Ok(())
     }
@@ -88,10 +100,36 @@ impl Cds {
     // 7. Announce yourself to all peers
     // 8. You are now the "last" peer (until someone else joins)
 
-    fn work(&mut self) {
-        //see if key was added/updated
+    fn work(&mut self) -> Result<(), String> {
+        //TODO: handle errors!
+        self.push_keys_to_peers()?;
 
-        //work on every connection
+        let peers = self.peers.clone();
+        let peers = peers
+            .lock()
+            .map_err(|x| format!("peers lock!\n{}", x))?;
+
+        for peer in &*peers {
+            peer.work(self)?;
+        }
+
+        Ok(())
+    }
+
+    fn push_keys_to_peers(&mut self)-> Result<(), String> {
+        let mut keys_to_push = self.keys_to_push
+            .lock()
+            .map_err(|x| format!("keys push lock!\n{}", x))?;
+        while let Some((key, value)) = keys_to_push.pop_front() {
+            let peers = self.peers
+                .lock()
+                .map_err(|x| format!("peers lock!\n{}", x))?;
+            for peer in &*peers {
+                peer.push_val(key.clone(), value.clone(), self.client_id)?;
+            }
+        }
+
+        Ok(())
     }
 }
 
