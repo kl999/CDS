@@ -2,6 +2,7 @@ use crate::cds::Cds;
 
 mod cds;
 mod peer;
+mod kv_message;
 
 fn main() -> Result<(), String> {
     let mut cds = Cds::new(1)?;

@@ -8,7 +8,7 @@ use crate::peer::Peer;
 pub struct Cds {
     pub client_id: u32,
     collection: Arc<Mutex<HashMap<String, Cell>>>,
-    keys_to_push: Arc<Mutex<VecDeque<(String, String)>>>,
+    keys_to_push: Arc<Mutex<VecDeque<(String, String, u64)>>>,
     peers: Arc<Mutex<Vec<Peer>>>,
 }
 
@@ -29,11 +29,13 @@ impl Cds {
             .map_err(|x| format!("col lock!\n{}", x))?;
 
         let cell = collection.get_mut(&key);
+        let mut ver = 0;
 
         if let Some(cell) = cell {
             cell.client_id = self.client_id;
             cell.version = cell.version + 1;
             cell.value = val.clone();
+            ver = cell.version;
         } else {
             collection.insert(key.clone(), Cell::new(self.client_id, val.clone()));
         }
@@ -42,7 +44,7 @@ impl Cds {
             .lock()
             .map_err(|x| format!("keys push lock!\n{}", x))?;
         
-        keys_to_push.push_back((key, val));
+        keys_to_push.push_back((key, val, ver));
 
         Ok(())
     }
@@ -120,12 +122,12 @@ impl Cds {
         let mut keys_to_push = self.keys_to_push
             .lock()
             .map_err(|x| format!("keys push lock!\n{}", x))?;
-        while let Some((key, value)) = keys_to_push.pop_front() {
-            let peers = self.peers
+        while let Some((key, value, version)) = keys_to_push.pop_front() {
+            let mut peers = self.peers
                 .lock()
                 .map_err(|x| format!("peers lock!\n{}", x))?;
-            for peer in &*peers {
-                peer.push_val(key.clone(), value.clone(), self.client_id)?;
+            for peer in &mut *peers {
+                peer.push_val(key.clone(), value.clone(), self.client_id, version)?;
             }
         }
 
