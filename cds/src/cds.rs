@@ -107,11 +107,11 @@ impl Cds {
         self.push_keys_to_peers()?;
 
         let peers = self.peers.clone();
-        let peers = peers
+        let mut peers = peers
             .lock()
             .map_err(|x| format!("peers lock!\n{}", x))?;
 
-        for peer in &*peers {
+        for peer in &mut *peers {
             peer.work(self)?;
         }
 

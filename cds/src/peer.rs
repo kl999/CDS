@@ -3,7 +3,7 @@ use udp_connection::SocketWorker;
 use crate::kv_message::KVMessage;
 
 pub struct Peer {
-    socket: SocketWorker,
+    connect: SocketWorker,
     is_dead: bool,
 }
 
@@ -19,13 +19,19 @@ impl Peer {
 
         let message = serde_json::to_string(&message).map_err(|x| format!("To JSON!\n{}", x))?;
 
-        self.socket
+        self.connect
             .send_message(message.as_bytes().to_vec().into_boxed_slice());
-
-        todo!()
+        
+        Ok(())
     }
 
-    pub(crate) fn work(&self, cds: &mut crate::cds::Cds) -> Result<(), String> {
-        todo!()
+    pub(crate) fn work(&mut self, cds: &mut crate::cds::Cds) -> Result<(), String> {
+        let msgs = self.connect.work();
+
+        for msg in msgs {
+            msg.asd
+        }
+
+        Ok(())
     }
 }
