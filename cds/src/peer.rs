@@ -29,9 +29,13 @@ impl Peer {
         let msgs = self.connect.work();
 
         for msg in msgs {
-            msg.asd
+            process_message(msg)?;
         }
 
         Ok(())
     }
+}
+
+fn process_message(msg: Box<[u8]>) -> Result<(), String> {
+    todo!()
 }
