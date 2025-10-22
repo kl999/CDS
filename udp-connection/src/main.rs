@@ -42,7 +42,7 @@ fn _socket_test() {
 fn run_server() {
     let mut worker = receive_handshake(
         "127.0.0.1:8080".to_string(),
-        |msg| println!("{}", msg)).unwrap();
+        |msg| println!("{:?}", msg)).unwrap();
 
     println!("Made worker {:?}", worker);
 
@@ -57,7 +57,7 @@ fn run_server() {
 fn run_client() {
     let mut worker = send_handshake(
         "127.0.0.1:8080".to_string(),
-        |msg| println!("{}", msg)).unwrap();
+        |msg| println!("{:?}", msg)).unwrap();
 
     println!("Made worker {:?}", worker);
     

@@ -27,7 +27,7 @@ use crate::{message::Message, socket_worker::SocketWorker};
 /// ```
 pub fn receive_handshake(
     address: String,
-    notify: fn(Rc<Message>),
+    notify: fn(&[u8]),
 ) -> std::io::Result<SocketWorker> {
     let sock = UdpSocket::bind(&address)?;
 
@@ -57,7 +57,7 @@ pub fn receive_handshake(
 ///     |msg| println!("Received: {}", msg)
 /// ).expect("Failed to connect");
 /// ```
-pub fn send_handshake(address: String, notify: fn(Rc<Message>)) -> std::io::Result<SocketWorker> {
+pub fn send_handshake(address: String, notify: fn(&[u8])) -> std::io::Result<SocketWorker> {
     let sock = UdpSocket::bind("127.0.0.1:0")?;
 
     let buf = "Hello".as_bytes();
