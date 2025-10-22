@@ -12,12 +12,12 @@ pub struct SocketWorker {
     address: String,
     outgoing: VecDeque<Message>,
     incoming: HashMap<u64, Rc<Message>>,
-    notify: fn(Rc<Message>),
+    notify: fn(&[u8]),
     message_id: u64,
 }
 
 impl SocketWorker {
-    pub fn new(socket: UdpSocket, address: String, f: fn(Rc<Message>)) -> SocketWorker {
+    pub fn new(socket: UdpSocket, address: String, f: fn(&[u8])) -> SocketWorker {
         SocketWorker {
             socket,
             address,
@@ -28,9 +28,18 @@ impl SocketWorker {
         }
     }
 
-    pub fn work(&mut self) {
-        self.receive();
+    pub fn work(&mut self) -> Vec<Box<[u8]>> {
+        let mut msgs = Vec::new();
+        loop {
+            match self.receive() {
+                ReceiveResult::SomeRR(msg) => {msgs.push(msg)},
+                ReceiveResult::NoneRR => {break},
+                _ => {}
+            }
+        }
         self.send();
+
+        msgs
     }
 
     pub fn send_message(&mut self, msg: Box<[u8]>) {
@@ -48,7 +57,7 @@ impl SocketWorker {
         self.outgoing.push_front(msg);
     }
 
-    fn receive(&mut self) {
+    fn receive(&mut self) -> ReceiveResult {
         let mut buf = [0; 1024];
         match &self.socket.recv_from(&mut buf) {
             Ok((number_of_bytes, src_addr)) => {
@@ -63,26 +72,29 @@ impl SocketWorker {
 
                 if msg.id == 0 {
                     self.handle_ctrl(msg);
-                    return;
+                    return ReceiveResult::Ctrl;
                 }
 
                 if !msg.check_hash() {
-                    return;
+                    return ReceiveResult::Bad;
                 }
 
                 self.send_acc_message(msg.id);
 
                 if self.incoming.contains_key(&msg.id) {
-                    return;
+                    return ReceiveResult::Skip;
                 }
 
                 let msg = Rc::new(msg);
 
                 _ = self.incoming.insert(msg.id, msg.clone());
-                (self.notify)(msg);
+                (self.notify)(&msg.data);
+
+                ReceiveResult::SomeRR(msg.data.to_vec().into_boxed_slice())
             }
             Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
                 // No data is available right now
+                ReceiveResult::NoneRR
             }
             Err(e) => {
                 panic!("On receive {}", e)
@@ -127,4 +139,12 @@ impl Debug for SocketWorker {
             .field("message_id", &self.message_id)
             .finish()
     }
+}
+
+enum ReceiveResult {
+    SomeRR(Box<[u8]>),
+    NoneRR,
+    Ctrl,
+    Bad,
+    Skip,
 }

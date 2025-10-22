@@ -1,9 +1,9 @@
 // Public exports for the udp-connection library
 
 pub mod socket_worker;
-pub mod message;
+mod message;
 pub mod socket_worker_handshake;
-pub mod control_message;
+mod control_message;
 
 // Re-export commonly used types
 pub use socket_worker::SocketWorker;
