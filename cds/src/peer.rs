@@ -29,13 +29,22 @@ impl Peer {
         let msgs = self.connect.work();
 
         for msg in msgs {
-            process_message(msg)?;
+            process_message(cds, msg)?;
         }
 
         Ok(())
     }
 }
 
-fn process_message(msg: Box<[u8]>) -> Result<(), String> {
-    todo!()
+fn process_message(control: &mut crate::cds::Cds, msg: Box<[u8]>) -> Result<(), String> {
+    let msg = String::from_utf8(msg.to_vec())
+        .map_err(|x| format!("To String!\n{}", x))?;
+    let msg: KVMessage = serde_json::from_str(&msg)
+        .map_err(|x| format!("From JSON!\n{}", x))?;
+
+    //TODO: Check for client id? Mb it is forward?
+
+    control.set_key_foreign(msg.key, msg.value, msg.client_id, msg.version)?;
+
+    Ok(())
 }

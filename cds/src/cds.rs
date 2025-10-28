@@ -49,7 +49,7 @@ impl Cds {
         Ok(())
     }
 
-    fn set_key_foreign(
+    pub fn set_key_foreign(
         &mut self,
         key: String,
         val: String,
