@@ -8,8 +8,8 @@ use std::{
 use crate::message::Message;
 
 pub struct SocketWorker {
+    pub address: String,
     socket: UdpSocket,
-    address: String,
     outgoing: VecDeque<Message>,
     incoming: HashMap<u64, Rc<Message>>,
     notify: fn(&[u8]),

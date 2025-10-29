@@ -1,28 +1,38 @@
 use std::{
-    collections::{HashMap, VecDeque},
-    sync::{Arc, Mutex},
+    collections::{HashMap, VecDeque}, sync::{Arc, Mutex}, thread
 };
 
 use crate::peer::Peer;
 
 pub struct Cds {
     pub client_id: u32,
+    peer_map: Vec<PeerMapItem>,
     collection: Arc<Mutex<HashMap<String, Cell>>>,
     keys_to_push: Arc<Mutex<VecDeque<(String, String, u64)>>>,
     peers: Arc<Mutex<Vec<Peer>>>,
 }
 
 impl Cds {
-    pub fn new(client_id: u32) -> Result<Cds, String> {
-        Ok(Cds {
+    pub fn new(client_id: u32) -> Result<Arc<Cds>, String> {
+        let cds = Cds {
             client_id,
+            peer_map: vec!(),
             collection: Arc::new(Mutex::new(HashMap::new())),
             keys_to_push: Arc::new(Mutex::new(VecDeque::with_capacity(50))),
             peers: Arc::new(Mutex::new(vec![])),
-        })
+        };
+
+        let cds = Arc::new(cds);
+        /*let in_thread = Arc::clone(&cds);
+
+        thread::spawn(move || {
+            in_thread.work();
+        });*/
+
+        Ok(cds)
     }
 
-    pub fn set_key(&mut self, key: String, val: String) -> Result<(), String> {
+    pub fn set_key(&self, key: String, val: String) -> Result<(), String> {
         let mut collection = self
             .collection
             .lock()
@@ -50,7 +60,7 @@ impl Cds {
     }
 
     pub fn set_key_foreign(
-        &mut self,
+        &self,
         key: String,
         val: String,
         client_id: u32,
@@ -102,7 +112,9 @@ impl Cds {
     // 7. Announce yourself to all peers
     // 8. You are now the "last" peer (until someone else joins)
 
-    fn work(&mut self) -> Result<(), String> {
+    fn work(&self) -> Result<(), String> {
+        self.regenerate_peers();
+
         //TODO: handle errors!
         self.push_keys_to_peers()?;
 
@@ -118,7 +130,7 @@ impl Cds {
         Ok(())
     }
 
-    fn push_keys_to_peers(&mut self)-> Result<(), String> {
+    fn push_keys_to_peers(&self)-> Result<(), String> {
         let mut keys_to_push = self.keys_to_push
             .lock()
             .map_err(|x| format!("keys push lock!\n{}", x))?;
@@ -132,6 +144,18 @@ impl Cds {
         }
 
         Ok(())
+    }
+
+    fn regenerate_peers(&self) {
+        self.accept_new_peer();
+        self.regenerate_from_map();
+    }
+
+    fn accept_new_peer(&self) {}
+    fn regenerate_from_map(&self) {
+        for item in &self.peer_map {
+            //if peer not found make new from map
+        }
     }
 }
 
@@ -149,4 +173,9 @@ impl Cell {
             value,
         }
     }
+}
+
+struct PeerMapItem {
+    pub address: String,
+    pub client_id: u32,
 }

@@ -25,7 +25,7 @@ impl Peer {
         Ok(())
     }
 
-    pub(crate) fn work(&mut self, cds: &mut crate::cds::Cds) -> Result<(), String> {
+    pub(crate) fn work(&mut self, cds: &crate::cds::Cds) -> Result<(), String> {
         let msgs = self.connect.work();
 
         for msg in msgs {
@@ -36,7 +36,7 @@ impl Peer {
     }
 }
 
-fn process_message(control: &mut crate::cds::Cds, msg: Box<[u8]>) -> Result<(), String> {
+fn process_message(control: &crate::cds::Cds, msg: Box<[u8]>) -> Result<(), String> {
     let msg = String::from_utf8(msg.to_vec())
         .map_err(|x| format!("To String!\n{}", x))?;
     let msg: KVMessage = serde_json::from_str(&msg)
