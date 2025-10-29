@@ -22,7 +22,7 @@ use crate::{message::Message, socket_worker::SocketWorker};
 /// # use udp_connection::socket_worker_handshake::receive_handshake;
 /// let mut worker = receive_handshake(
 ///     "127.0.0.1:8080".to_string(),
-///     |msg| println!("Received: {}", msg)
+///     |msg| println!("Received: {:?}", msg)
 /// ).expect("Failed to start server");
 /// ```
 pub fn receive_handshake(
@@ -54,7 +54,7 @@ pub fn receive_handshake(
 /// # use udp_connection::socket_worker_handshake::send_handshake;
 /// let mut worker = send_handshake(
 ///     "127.0.0.1:8080".to_string(),
-///     |msg| println!("Received: {}", msg)
+///     |msg| println!("Received: {:?}", msg)
 /// ).expect("Failed to connect");
 /// ```
 pub fn send_handshake(address: String, notify: fn(&[u8])) -> std::io::Result<SocketWorker> {
