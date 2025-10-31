@@ -32,8 +32,8 @@ impl SocketWorker {
         let mut msgs = Vec::new();
         loop {
             match self.receive() {
-                ReceiveResult::SomeRR(msg) => {msgs.push(msg)},
-                ReceiveResult::NoneRR => {break},
+                ReceiveResult::SomeRR(msg) => msgs.push(msg),
+                ReceiveResult::NoneRR => break,
                 _ => {}
             }
         }
