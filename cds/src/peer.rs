@@ -49,6 +49,8 @@ fn process_message(control: &mut CdsWorker, msg: Box<[u8]>) -> Result<(), String
     Ok(())
 }
 
+#[derive(Debug)]
 pub enum PeerResult {
-
+    Unknown,
+    KeyUpdate(String, String, u64, u32),
 }

@@ -1,6 +1,9 @@
 use std::{
     collections::{HashMap, VecDeque},
-    sync::{Arc, Mutex},
+    sync::{
+        Arc, Mutex,
+        mpsc::{Receiver, TryRecvError},
+    },
 };
 
 use crate::peer::{Peer, PeerResult};
@@ -11,16 +14,22 @@ pub struct CdsWorker {
     collection: Arc<Mutex<HashMap<String, Cell>>>,
     keys_to_push: VecDeque<(String, String, u64)>,
     peers: Vec<Peer>,
+    rx: Receiver<(String, String)>,
 }
 
 impl CdsWorker {
-    pub fn new(client_id: u32, collection: Arc<Mutex<HashMap<String, Cell>>>) -> CdsWorker {
+    pub fn new(
+        client_id: u32,
+        collection: Arc<Mutex<HashMap<String, Cell>>>,
+        rx: Receiver<(String, String)>,
+    ) -> CdsWorker {
         CdsWorker {
             client_id,
             peer_map: vec![],
             collection,
             keys_to_push: VecDeque::with_capacity(50),
             peers: vec![],
+            rx,
         }
     }
 
@@ -74,28 +83,73 @@ impl CdsWorker {
         loop {
             self.regenerate_peers();
 
-            //TODO: handle errors!
             if let Err(e) = self.push_keys_to_peers() {
                 eprintln!("Push error: {}", e);
             }
 
-            for peer in &mut self.peers {
-                match peer.work() {
-                    Ok(result) => self.consume_peer_result(result),
+            let mut i = 0;
+            loop {
+                if i == self.peers.len() {
+                    break;
+                }
+
+                let result = self.peers[i].work();
+
+                match result {
+                    Ok(result) => {
+                        if let Err(msg) = self.consume_peer_result(result) {
+                            eprintln!("Consume result error {}", msg);
+                        }
+                    }
                     Err(e) => eprintln!("Peer work error: {}", e),
                 }
+
+                i += 1;
             }
         }
     }
 
-    fn consume_peer_result(&mut self, result: Vec<PeerResult>) {
+    fn consume_peer_result(&mut self, result: Vec<PeerResult>) -> Result<(), String> {
+        for result in result {
+            match result {
+                PeerResult::KeyUpdate(key, value, version, client_id) => {
+                    self.set_key_foreign(key, value, client_id, version)?;
+                }
+                _ => return Err(format!("Unknown result {:?}", result)),
+            }
+        }
 
+        Ok(())
     }
 
     fn push_keys_to_peers(&mut self) -> Result<(), String> {
-        while let Some((key, value, version)) = self.keys_to_push.pop_front() {
-            for peer in &mut self.peers {
-                peer.push_val(key.clone(), value.clone(), self.client_id, version)?;
+        loop {
+            match self.rx.try_recv() {
+                Ok((key, value)) => {
+                    let mut collection = self
+                        .collection
+                        .lock()
+                        .map_err(|x| format!("col lock!\n{}", x))?;
+
+                    let cell = collection.get_mut(&key);
+                    let mut ver = 0;
+
+                    if let Some(cell) = cell {
+                        cell.client_id = self.client_id;
+                        cell.version = cell.version + 1;
+                        cell.value = value.clone();
+                        ver = cell.version;
+                    } else {
+                        collection.insert(key.clone(), Cell::new(self.client_id, value.clone()));
+                    }
+
+                    for peer in &mut self.peers {
+                        peer.push_val(key.clone(), value.clone(), self.client_id, ver)?;
+                    }
+                }
+                Err(err) if err == TryRecvError::Empty => break,
+                // TODO: TryRecvError::Disconnected kill the worker!
+                Err(err) => eprintln!("Error channel {}", err),
             }
         }
 

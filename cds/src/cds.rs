@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, mpsc::{self, Sender}},
     thread::{self, JoinHandle},
 };
 
@@ -9,6 +9,7 @@ use crate::cds_worker::{CdsWorker, Cell};
 pub struct Cds {
     collection: Arc<Mutex<HashMap<String, Cell>>>,
     worker_handle: JoinHandle<()>,
+    tx: Sender<(String, String)>,
 }
 
 impl Cds {
@@ -17,41 +18,23 @@ impl Cds {
 
         let collection_thread = Arc::clone(&collection);
 
+        let (tx, rx) = mpsc::channel();
+
         let worker_handle = thread::spawn(move || {
-            let cds_worker = CdsWorker::new(client_id, collection_thread);
+            let cds_worker = CdsWorker::new(client_id, collection_thread, rx);
             cds_worker.work();
         });
 
         Ok(Cds {
             collection,
             worker_handle,
+            tx,
         })
     }
 
     pub fn set_key(&self, key: String, val: String) -> Result<(), String> {
-        let mut collection = self
-            .collection
-            .lock()
-            .map_err(|x| format!("col lock!\n{}", x))?;
-
-        let cell = collection.get_mut(&key);
-        let mut ver = 0;
-
-        if let Some(cell) = cell {
-            cell.client_id = self.client_id;
-            cell.version = cell.version + 1;
-            cell.value = val.clone();
-            ver = cell.version;
-        } else {
-            collection.insert(key.clone(), Cell::new(self.client_id, val.clone()));
-        }
-
-        let mut keys_to_push = self
-            .keys_to_push
-            .lock()
-            .map_err(|x| format!("keys push lock!\n{}", x))?;
-
-        keys_to_push.push_back((key, val, ver));
+        self.tx.send((key, val))
+        .map_err(|x| format!("rx send {}", x))?;
 
         Ok(())
     }
