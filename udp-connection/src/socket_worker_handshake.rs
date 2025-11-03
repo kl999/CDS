@@ -1,10 +1,9 @@
 use std::{
     io::Error,
-    net::{SocketAddr, UdpSocket},
-    rc::Rc,
+    net::{SocketAddr, UdpSocket}
 };
 
-use crate::{message::Message, socket_worker::SocketWorker};
+use crate::{socket_worker::SocketWorker};
 
 /// Sets up a UDP server that waits for client handshake requests.
 ///
