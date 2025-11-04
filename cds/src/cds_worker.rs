@@ -12,7 +12,6 @@ pub struct CdsWorker {
     pub client_id: u32,
     peer_map: Vec<PeerMapItem>,
     collection: Arc<Mutex<HashMap<String, Cell>>>,
-    keys_to_push: VecDeque<(String, String, u64)>,
     peers: Vec<Peer>,
     rx: Receiver<(String, String)>,
 }
@@ -27,7 +26,6 @@ impl CdsWorker {
             client_id,
             peer_map: vec![],
             collection,
-            keys_to_push: VecDeque::with_capacity(50),
             peers: vec![],
             rx,
         }
@@ -161,10 +159,12 @@ impl CdsWorker {
         self.regenerate_from_map();
     }
 
-    fn accept_new_peer(&self) {}
+    fn accept_new_peer(&self) {
+        // TODO: check if anyone called
+    }
     fn regenerate_from_map(&self) {
         for item in &self.peer_map {
-            //if peer not found make new from map
+            // TODO: if peer not found make new from map
         }
     }
 }

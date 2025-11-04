@@ -55,6 +55,8 @@ impl Cds {
 
     pub fn stop(self) {
         // do stuff like worker.stop()
-        self.worker_handle.join();
+        if let Err(msg) = self.worker_handle.join() {
+            eprintln!("Err ending cds: {:?}", msg)
+        }
     }
 }

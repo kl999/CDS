@@ -6,7 +6,7 @@ mod kv_message;
 mod cds_worker;
 
 fn main() -> Result<(), String> {
-    let mut cds = Cds::new(1)?;
+    let cds = Cds::new(1)?;
 
     let val = cds.get_key("A".to_string())?;
 
@@ -18,5 +18,7 @@ fn main() -> Result<(), String> {
 
     println!("key 'A' = {:?}", val);
     
+    cds.stop();
+
     Ok(())
 }
