@@ -51,6 +51,6 @@ fn process_message(msg: Box<[u8]>) -> Result<PeerResult, String> {
 #[derive(Debug)]
 pub enum PeerResult {
     Unknown,
-    /// key, value, version, client_id
+    /// KeyUpdate(key, value, version, client_id)
     KeyUpdate(String, String, u64, u32),
 }
