@@ -27,7 +27,7 @@ use crate::socket_worker::SocketWorker;
 pub fn receive_handshake(address: String, notify: fn(&[u8])) -> std::io::Result<SocketWorker> {
     let socket = UdpSocket::bind(&address)?;
 
-    let (new_socket, new_adr) = expect_handshake(socket)?;
+    let (new_socket, new_adr) = expect_handshake(&socket)?;
 
     new_socket.set_nonblocking(true)?;
 
@@ -35,7 +35,7 @@ pub fn receive_handshake(address: String, notify: fn(&[u8])) -> std::io::Result<
 }
 
 pub fn receive_handshake_nonblocking(
-    socket: UdpSocket,
+    socket: &UdpSocket,
     notify: fn(&[u8]),
 ) -> std::io::Result<SocketWorker> {
     let (new_sock, new_adr) = expect_handshake(socket)?;
@@ -117,7 +117,7 @@ pub fn send_handshake(address: String, notify: fn(&[u8])) -> std::io::Result<Soc
 /// let server_socket = UdpSocket::bind("127.0.0.1:8080").unwrap();
 /// // expect_handshake waits for "Hello" and creates dedicated channel
 /// ```
-fn expect_handshake(sock: UdpSocket) -> std::io::Result<(UdpSocket, String)> {
+fn expect_handshake(sock: &UdpSocket) -> std::io::Result<(UdpSocket, String)> {
     let mut buf = [0; 5];
 
     let (number_of_bytes, src_addr) = sock.recv_from(&mut buf)?;
