@@ -25,13 +25,13 @@ use crate::socket_worker::SocketWorker;
 /// ).expect("Failed to start server");
 /// ```
 pub fn receive_handshake(address: String, notify: fn(&[u8])) -> std::io::Result<SocketWorker> {
-    let sock = UdpSocket::bind(&address)?;
+    let socket = UdpSocket::bind(&address)?;
 
-    let (new_sock, new_adr) = expect_handshake(sock)?;
+    let (new_socket, new_adr) = expect_handshake(socket)?;
 
-    new_sock.set_nonblocking(true)?;
+    new_socket.set_nonblocking(true)?;
 
-    Ok(SocketWorker::new(new_sock, new_adr, notify))
+    Ok(SocketWorker::new(new_socket, new_adr, notify))
 }
 
 pub fn receive_handshake_nonblocking(
