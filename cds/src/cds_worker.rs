@@ -1,10 +1,11 @@
 use std::{
-    collections::{HashMap, VecDeque},
-    sync::{
+    collections::{HashMap, VecDeque}, net::UdpSocket, sync::{
         Arc, Mutex,
         mpsc::{Receiver, TryRecvError},
-    },
+    }
 };
+
+use udp_connection::{receive_handshake, socket_worker_handshake::receive_handshake_nonblocking};
 
 use crate::peer::{Peer, PeerResult};
 
@@ -14,6 +15,7 @@ pub struct CdsWorker {
     collection: Arc<Mutex<HashMap<String, Cell>>>,
     peers: Vec<Peer>,
     rx: Receiver<(String, String)>,
+    new_peer_socket: UdpSocket,
 }
 
 impl CdsWorker {
@@ -21,14 +23,21 @@ impl CdsWorker {
         client_id: u32,
         collection: Arc<Mutex<HashMap<String, Cell>>>,
         rx: Receiver<(String, String)>,
-    ) -> CdsWorker {
-        CdsWorker {
+        address: String
+    ) -> Result<CdsWorker, String> {
+        let new_peer_socket = UdpSocket::bind(&address)
+            .map_err(|e| format!("Error binding socket {e}"))?;
+        new_peer_socket.set_nonblocking(true)
+            .map_err(|e| format!("Error set nonblocking {e}"))?;
+
+        Ok(CdsWorker {
             client_id,
             peer_map: vec![],
             collection,
             peers: vec![],
             rx,
-        }
+            new_peer_socket,
+        })
     }
 
     pub fn set_key_foreign(
@@ -79,7 +88,9 @@ impl CdsWorker {
 
     pub fn work(mut self) {
         loop {
-            self.regenerate_peers();
+            if let Err(e) = self.regenerate_peers() {
+                eprintln!("Push error: {}", e);
+            }
 
             if let Err(e) = self.push_keys_to_peers() {
                 eprintln!("Push error: {}", e);
@@ -154,18 +165,37 @@ impl CdsWorker {
         Ok(())
     }
 
-    fn regenerate_peers(&self) {
-        self.accept_new_peer();
-        self.regenerate_from_map();
+    fn regenerate_peers(&mut self) -> Result<(), String> {
+        self.accept_new_peer()?;
+        self.regenerate_from_map()?;
+
+        Ok(())
     }
 
-    fn accept_new_peer(&self) {
-        // TODO: check if anyone called
+    fn accept_new_peer(&mut self) -> Result<(), String> {
+        let worker = receive_handshake_nonblocking(
+        &self.new_peer_socket,
+        |_| ())
+            .map_err(|x| format!("col lock!\n{}", x))?;
+
+        let address = worker.address.clone();
+
+        if self.dont_have_peer_with_addr(&address) {
+            self.peers.push(Peer::new(address, worker));
+        }
+
+        Ok(())
     }
-    fn regenerate_from_map(&self) {
+    fn regenerate_from_map(&self) -> Result<(), String> {
         for item in &self.peer_map {
             // TODO: if peer not found make new from map
         }
+
+        Ok(())
+    }
+
+    pub fn dont_have_peer_with_addr(&self, address: &str) -> bool {
+        !self.peers.iter().any(|peer| peer.address == address)
     }
 }
 
@@ -188,4 +218,21 @@ impl Cell {
 struct PeerMapItem {
     pub address: String,
     pub client_id: u32,
+    state: PeerMapState
+}
+
+impl PeerMapItem {
+    pub fn new(address: String, client_id: u32) -> PeerMapItem {
+        PeerMapItem {
+            address,
+            client_id,
+            state: PeerMapState::Ok,
+        }
+    }
+}
+
+enum PeerMapState {
+    Unknown,
+    Ok,
+    Inactive
 }

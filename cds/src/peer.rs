@@ -3,10 +3,18 @@ use udp_connection::SocketWorker;
 use crate::kv_message::KVMessage;
 
 pub struct Peer {
+    pub address: String,
     connect: SocketWorker,
 }
 
 impl Peer {
+    pub(crate) fn new(address: String, worker: SocketWorker) -> Peer {
+        Peer {
+            address,
+            connect: worker,
+        }
+    }
+
     pub(crate) fn push_val(
         &mut self,
         key: String,
