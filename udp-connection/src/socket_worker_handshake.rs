@@ -1,9 +1,9 @@
 use std::{
     io::Error,
-    net::{SocketAddr, UdpSocket}
+    net::{SocketAddr, UdpSocket},
 };
 
-use crate::{socket_worker::SocketWorker};
+use crate::socket_worker::SocketWorker;
 
 /// Sets up a UDP server that waits for client handshake requests.
 ///
@@ -24,13 +24,21 @@ use crate::{socket_worker::SocketWorker};
 ///     |msg| println!("Received: {:?}", msg)
 /// ).expect("Failed to start server");
 /// ```
-pub fn receive_handshake(
-    address: String,
-    notify: fn(&[u8]),
-) -> std::io::Result<SocketWorker> {
+pub fn receive_handshake(address: String, notify: fn(&[u8])) -> std::io::Result<SocketWorker> {
     let sock = UdpSocket::bind(&address)?;
 
     let (new_sock, new_adr) = expect_handshake(sock)?;
+
+    new_sock.set_nonblocking(true)?;
+
+    Ok(SocketWorker::new(new_sock, new_adr, notify))
+}
+
+pub fn receive_handshake_nonblocking(
+    socket: UdpSocket,
+    notify: fn(&[u8]),
+) -> std::io::Result<SocketWorker> {
+    let (new_sock, new_adr) = expect_handshake(socket)?;
 
     new_sock.set_nonblocking(true)?;
 
@@ -90,11 +98,7 @@ pub fn send_handshake(address: String, notify: fn(&[u8])) -> std::io::Result<Soc
 
     sock.set_nonblocking(true)?;
 
-    Ok(SocketWorker::new(
-        sock,
-        socket_addr.to_string(),
-        notify,
-    ))
+    Ok(SocketWorker::new(sock, socket_addr.to_string(), notify))
 }
 
 /// Handles server-side handshake protocol.
