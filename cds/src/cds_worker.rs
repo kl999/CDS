@@ -1,8 +1,10 @@
 use std::{
-    collections::{HashMap, VecDeque}, net::UdpSocket, sync::{
+    collections::{HashMap, VecDeque},
+    net::UdpSocket,
+    sync::{
         Arc, Mutex,
         mpsc::{Receiver, TryRecvError},
-    }
+    },
 };
 
 use udp_connection::{receive_handshake, socket_worker_handshake::receive_handshake_nonblocking};
@@ -23,11 +25,12 @@ impl CdsWorker {
         client_id: u32,
         collection: Arc<Mutex<HashMap<String, Cell>>>,
         rx: Receiver<(String, String)>,
-        address: String
+        address: String,
     ) -> Result<CdsWorker, String> {
-        let new_peer_socket = UdpSocket::bind(&address)
-            .map_err(|e| format!("Error binding socket {e}"))?;
-        new_peer_socket.set_nonblocking(true)
+        let new_peer_socket =
+            UdpSocket::bind(&address).map_err(|e| format!("Error binding socket {e}"))?;
+        new_peer_socket
+            .set_nonblocking(true)
             .map_err(|e| format!("Error set nonblocking {e}"))?;
 
         Ok(CdsWorker {
@@ -173,22 +176,35 @@ impl CdsWorker {
     }
 
     fn accept_new_peer(&mut self) -> Result<(), String> {
-        let worker = receive_handshake_nonblocking(
-        &self.new_peer_socket,
-        |_| ())
+        let worker = receive_handshake_nonblocking(&self.new_peer_socket, |_| ())
             .map_err(|x| format!("col lock!\n{}", x))?;
 
         let address = worker.address.clone();
 
         if self.dont_have_peer_with_addr(&address) {
-            self.peers.push(Peer::new(address, worker));
+            self.peers.push(Peer::new_from_worker(address, worker));
         }
 
         Ok(())
     }
-    fn regenerate_from_map(&self) -> Result<(), String> {
-        for item in &self.peer_map {
-            // TODO: if peer not found make new from map
+
+    fn regenerate_from_map(&mut self) -> Result<(), String> {
+        let mut i = 0;
+
+        loop {
+            if i >= self.peer_map.len() {
+                break;
+            }
+
+            let item = &self.peer_map[i];
+
+            if self.dont_have_peer_with_addr(&item.address) {
+                let peer = Peer::new(item.address.clone())?;
+                self.peers.push(peer);
+                self.peer_map[i].state = PeerMapState::Ok;
+            }
+
+            i += 1;
         }
 
         Ok(())
@@ -218,7 +234,7 @@ impl Cell {
 struct PeerMapItem {
     pub address: String,
     pub client_id: u32,
-    state: PeerMapState
+    state: PeerMapState,
 }
 
 impl PeerMapItem {
@@ -234,5 +250,5 @@ impl PeerMapItem {
 enum PeerMapState {
     Unknown,
     Ok,
-    Inactive
+    Inactive,
 }

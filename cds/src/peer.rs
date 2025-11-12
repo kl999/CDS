@@ -1,4 +1,4 @@
-use udp_connection::SocketWorker;
+use udp_connection::{SocketWorker, send_handshake};
 
 use crate::kv_message::KVMessage;
 
@@ -8,7 +8,17 @@ pub struct Peer {
 }
 
 impl Peer {
-    pub(crate) fn new(address: String, worker: SocketWorker) -> Peer {
+    pub(crate) fn new(address: String) -> Result<Peer, String> {
+        let connect = send_handshake(address.clone(), |_|{})
+            .map_err(|x| format!("send_handshake {}", x))?;
+
+        Ok(Peer {
+            address,
+            connect,
+        })
+    }
+    
+    pub(crate) fn new_from_worker(address: String, worker: SocketWorker) -> Peer {
         Peer {
             address,
             connect: worker,
@@ -24,7 +34,8 @@ impl Peer {
     ) -> Result<(), String> {
         let message = KVMessage::new(key, value, client_id, version);
 
-        let message = serde_json::to_string(&message).map_err(|x| format!("To JSON!\n{}", x))?;
+        let message = serde_json::to_string(&message)
+            .map_err(|x| format!("To JSON! {}", x))?;
 
         self.connect
             .send_message(message.as_bytes().to_vec().into_boxed_slice());
@@ -46,9 +57,9 @@ impl Peer {
 
 fn process_message(msg: Box<[u8]>) -> Result<PeerResult, String> {
     let msg = String::from_utf8(msg.to_vec())
-        .map_err(|x| format!("To String!\n{}", x))?;
+        .map_err(|x| format!("To String! {}", x))?;
     let msg: KVMessage = serde_json::from_str(&msg)
-        .map_err(|x| format!("From JSON!\n{}", x))?;
+        .map_err(|x| format!("From JSON! {}", x))?;
 
     // TODO: Check for client id? Mb it is forward?
     
