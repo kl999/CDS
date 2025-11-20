@@ -7,7 +7,7 @@ use std::{
     },
 };
 
-use udp_connection::{receive_handshake, socket_worker_handshake::receive_handshake_nonblocking};
+use udp_connection::{socket_worker_handshake::receive_handshake_nonblocking};
 
 use crate::peer::{Peer, PeerResult};
 
@@ -116,7 +116,11 @@ impl CdsWorker {
                     Err(e) => eprintln!("Peer work error: {}", e),
                 }
 
-                i += 1;
+                if self.peers[i].is_dead {
+                    self.peers.remove(i);
+                } else {
+                    i += 1;
+                }
             }
         }
     }

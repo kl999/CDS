@@ -1,8 +1,5 @@
 use std::{
-    collections::{HashMap, VecDeque},
-    fmt::Debug,
-    net::UdpSocket,
-    rc::Rc,
+    collections::{HashMap, VecDeque}, fmt::Debug, net::UdpSocket, rc::Rc
 };
 
 use crate::message::Message;
@@ -28,12 +25,13 @@ impl SocketWorker {
         }
     }
 
-    pub fn work(&mut self) -> Vec<Box<[u8]>> {
+    pub fn work(&mut self) -> Vec<Result<Box<[u8]>, String>> {
         let mut msgs = Vec::new();
         loop {
             match self.receive() {
-                ReceiveResult::SomeRR(msg) => msgs.push(msg),
+                ReceiveResult::SomeRR(msg) => msgs.push(Ok(msg)),
                 ReceiveResult::NoneRR => break,
+                ReceiveResult::Error(e) => msgs.push(Err(e)),
                 _ => {}
             }
         }
@@ -97,7 +95,7 @@ impl SocketWorker {
                 ReceiveResult::NoneRR
             }
             Err(e) => {
-                panic!("On receive {}", e)
+                ReceiveResult::Error(format!("Error receiving from socket {e}"))
             }
         }
     }
@@ -147,4 +145,5 @@ enum ReceiveResult {
     Ctrl,
     Bad,
     Skip,
+    Error(String),
 }

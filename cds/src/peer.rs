@@ -4,23 +4,26 @@ use crate::kv_message::KVMessage;
 
 pub struct Peer {
     pub address: String,
+    pub is_dead: bool,
     connect: SocketWorker,
 }
 
 impl Peer {
     pub(crate) fn new(address: String) -> Result<Peer, String> {
-        let connect = send_handshake(address.clone(), |_|{})
-            .map_err(|x| format!("send_handshake {}", x))?;
+        let connect =
+            send_handshake(address.clone(), |_| {}).map_err(|x| format!("send_handshake {}", x))?;
 
         Ok(Peer {
             address,
+            is_dead: false,
             connect,
         })
     }
-    
+
     pub(crate) fn new_from_worker(address: String, worker: SocketWorker) -> Peer {
         Peer {
             address,
+            is_dead: false,
             connect: worker,
         }
     }
@@ -34,12 +37,11 @@ impl Peer {
     ) -> Result<(), String> {
         let message = KVMessage::new(key, value, client_id, version);
 
-        let message = serde_json::to_string(&message)
-            .map_err(|x| format!("To JSON! {}", x))?;
+        let message = serde_json::to_string(&message).map_err(|x| format!("To JSON! {}", x))?;
 
         self.connect
             .send_message(message.as_bytes().to_vec().into_boxed_slice());
-        
+
         Ok(())
     }
 
@@ -48,22 +50,36 @@ impl Peer {
         let mut results = vec![];
 
         for msg in msgs {
-            results.push(process_message(msg)?);
+            match msg {
+                Ok(msg) => results.push(process_message(msg)?),
+                Err(e) => {
+                    eprintln!("Error from peer {e}");
+                    self.die();
+                    break;
+                }
+            }
         }
 
         Ok(results)
     }
+
+    fn die(&mut self) {
+        self.is_dead = true;
+    }
 }
 
 fn process_message(msg: Box<[u8]>) -> Result<PeerResult, String> {
-    let msg = String::from_utf8(msg.to_vec())
-        .map_err(|x| format!("To String! {}", x))?;
-    let msg: KVMessage = serde_json::from_str(&msg)
-        .map_err(|x| format!("From JSON! {}", x))?;
+    let msg = String::from_utf8(msg.to_vec()).map_err(|x| format!("To String! {}", x))?;
+    let msg: KVMessage = serde_json::from_str(&msg).map_err(|x| format!("From JSON! {}", x))?;
 
     // TODO: Check for client id? Mb it is forward?
-    
-    Ok(PeerResult::KeyUpdate(msg.key, msg.value, msg.version, msg.client_id))
+
+    Ok(PeerResult::KeyUpdate(
+        msg.key,
+        msg.value,
+        msg.version,
+        msg.client_id,
+    ))
 }
 
 #[allow(dead_code)]
