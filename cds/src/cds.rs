@@ -4,7 +4,7 @@ use std::{
     thread::{self, JoinHandle},
 };
 
-use crate::cds_worker::{CdsWorker, Cell};
+use crate::cds_worker::{CdsWorker, Cell, PeerMapItem};
 
 pub struct Cds {
     collection: Arc<Mutex<HashMap<String, Cell>>>,
@@ -13,7 +13,7 @@ pub struct Cds {
 }
 
 impl Cds {
-    pub fn new(client_id: u32, address: String) -> Result<Cds, String> {
+    pub fn new(client_id: u32, address: String, peer_map: Vec<PeerMapItem>) -> Result<Cds, String> {
         let collection = Arc::new(Mutex::new(HashMap::new()));
 
         let collection_thread = Arc::clone(&collection);
@@ -21,7 +21,7 @@ impl Cds {
         let (tx, rx) = mpsc::channel();
 
         let worker_handle = thread::spawn(move || {
-            let cds_worker = CdsWorker::new(client_id, collection_thread, rx, address);
+            let cds_worker = CdsWorker::new(client_id, collection_thread, rx, address, peer_map);
             if let Ok(cds_worker) = cds_worker {
                 cds_worker.work();
             }

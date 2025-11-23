@@ -26,6 +26,7 @@ impl CdsWorker {
         collection: Arc<Mutex<HashMap<String, Cell>>>,
         rx: Receiver<(String, String)>,
         address: String,
+        peer_map: Vec<PeerMapItem>
     ) -> Result<CdsWorker, String> {
         let new_peer_socket =
             UdpSocket::bind(&address).map_err(|e| format!("Error binding socket {e}"))?;
@@ -35,7 +36,7 @@ impl CdsWorker {
 
         Ok(CdsWorker {
             client_id,
-            peer_map: vec![],
+            peer_map,
             collection,
             peers: vec![],
             rx,
@@ -235,7 +236,7 @@ impl Cell {
     }
 }
 
-struct PeerMapItem {
+pub struct PeerMapItem {
     pub address: String,
     pub client_id: u32,
     state: PeerMapState,

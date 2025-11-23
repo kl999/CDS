@@ -6,7 +6,7 @@ mod kv_message;
 mod cds_worker;
 
 fn main() -> Result<(), String> {
-    let cds = Cds::new(1, "127.0.0.1:3000".to_string())?;
+    let cds = Cds::new(1, "127.0.0.1:3000".to_string(), vec![])?;
 
     let val = cds.get_key("A".to_string())?;
 
