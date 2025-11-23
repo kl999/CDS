@@ -186,11 +186,20 @@ impl CdsWorker {
 
         let address = worker.address.clone();
 
-        if self.dont_have_peer_with_addr(&address) {
-            self.peers.push(Peer::new_from_worker(address, worker));
+        let map_item = self.peer_map.iter().find(|i| i.address == address);
+
+        if let None = map_item {
+            return Err(format!("accept_new_peer: Address {address} is not in the map!"));
+            // TODO: reevaluate after automatic peer id implementation!
+        } else if let Some(map_item) = map_item {
+            if self.dont_have_peer_with_addr(&address) {
+                self.peers.push(Peer::new_from_worker(address, map_item.client_id, worker));
+            }
+
+            return Ok(());
         }
 
-        Ok(())
+        Err("Wtf".to_string())
     }
 
     fn regenerate_from_map(&mut self) -> Result<(), String> {
@@ -204,7 +213,7 @@ impl CdsWorker {
             let item = &self.peer_map[i];
 
             if self.dont_have_peer_with_addr(&item.address) {
-                let peer = Peer::new(item.address.clone())?;
+                let peer = Peer::new(item.address.clone(), item.client_id)?;
                 self.peers.push(peer);
                 self.peer_map[i].state = PeerMapState::Ok;
             }

@@ -4,25 +4,28 @@ use crate::kv_message::KVMessage;
 
 pub struct Peer {
     pub address: String,
+    pub id: u32,
     pub is_dead: bool,
     connect: SocketWorker,
 }
 
 impl Peer {
-    pub(crate) fn new(address: String) -> Result<Peer, String> {
+    pub(crate) fn new(address: String, id: u32) -> Result<Peer, String> {
         let connect =
             send_handshake(address.clone(), |_| {}).map_err(|x| format!("send_handshake {}", x))?;
 
         Ok(Peer {
             address,
+            id,
             is_dead: false,
             connect,
         })
     }
 
-    pub(crate) fn new_from_worker(address: String, worker: SocketWorker) -> Peer {
+    pub(crate) fn new_from_worker(address: String, id: u32, worker: SocketWorker) -> Peer {
         Peer {
             address,
+            id,
             is_dead: false,
             connect: worker,
         }
