@@ -7,7 +7,8 @@ use std::{
     },
 };
 
-use udp_connection::{socket_worker_handshake::receive_handshake_nonblocking};
+use serde::de::value;
+use udp_connection::socket_worker_handshake::receive_handshake_nonblocking;
 
 use crate::peer::{Peer, PeerResult};
 
@@ -26,7 +27,7 @@ impl CdsWorker {
         collection: Arc<Mutex<HashMap<String, Cell>>>,
         rx: Receiver<(String, String)>,
         address: String,
-        peer_map: Vec<PeerMapItem>
+        peer_map: Vec<PeerMapItem>,
     ) -> Result<CdsWorker, String> {
         let new_peer_socket =
             UdpSocket::bind(&address).map_err(|e| format!("Error binding socket {e}"))?;
@@ -143,31 +144,37 @@ impl CdsWorker {
         loop {
             match self.rx.try_recv() {
                 Ok((key, value)) => {
-                    let mut collection = self
-                        .collection
-                        .lock()
-                        .map_err(|x| format!("col lock!\n{}", x))?;
-
-                    let cell = collection.get_mut(&key);
-                    let mut ver = 0;
-
-                    if let Some(cell) = cell {
-                        cell.client_id = self.client_id;
-                        ver = cell.version;
-                        cell.version = cell.version + 1;
-                        cell.value = value.clone();
-                    } else {
-                        collection.insert(key.clone(), Cell::new(self.client_id, value.clone()));
-                    }
-
-                    for peer in &mut self.peers {
-                        peer.push_val(key.clone(), value.clone(), self.client_id, ver)?;
-                    }
+                    self.set_key(key, value)?;
                 }
                 Err(err) if err == TryRecvError::Empty => break,
                 // TODO: TryRecvError::Disconnected kill the worker!
                 Err(err) => eprintln!("Error channel {}", err),
             }
+        }
+
+        Ok(())
+    }
+
+    fn set_key(&mut self, key: String, value: String) -> Result<(), String> {
+        let mut collection = self
+            .collection
+            .lock()
+            .map_err(|x| format!("col lock!\n{}", x))?;
+
+        let cell = collection.get_mut(&key);
+        let mut ver = 0;
+
+        if let Some(cell) = cell {
+            cell.client_id = self.client_id;
+            ver = cell.version;
+            cell.version = cell.version + 1;
+            cell.value = value.clone();
+        } else {
+            collection.insert(key.clone(), Cell::new(self.client_id, value.clone()));
+        }
+
+        for peer in &mut self.peers {
+            peer.push_val(key.clone(), value.clone(), self.client_id, ver)?;
         }
 
         Ok(())
@@ -189,11 +196,14 @@ impl CdsWorker {
         let map_item = self.peer_map.iter().find(|i| i.address == address);
 
         if let None = map_item {
-            return Err(format!("accept_new_peer: Address {address} is not in the map!"));
+            return Err(format!(
+                "accept_new_peer: Address {address} is not in the map!"
+            ));
             // TODO: reevaluate after automatic peer id implementation!
         } else if let Some(map_item) = map_item {
             if self.dont_have_peer_with_addr(&address) {
-                self.peers.push(Peer::new_from_worker(address, map_item.client_id, worker));
+                self.peers
+                    .push(Peer::new_from_worker(address, map_item.client_id, worker));
             }
 
             return Ok(());
