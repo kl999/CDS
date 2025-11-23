@@ -61,7 +61,7 @@ impl CdsWorker {
         if let Some(cell) = cell {
             if version > cell.version || version == cell.version && client_id < self.client_id {
                 cell.client_id = client_id;
-                cell.version = version;
+                cell.version = version + 1;
                 cell.value = val;
             }
             //else version < cell.version do nothing
@@ -70,7 +70,7 @@ impl CdsWorker {
                 key,
                 Cell {
                     client_id,
-                    version,
+                    version: version + 1,
                     value: val,
                 },
             );
@@ -153,9 +153,9 @@ impl CdsWorker {
 
                     if let Some(cell) = cell {
                         cell.client_id = self.client_id;
+                        ver = cell.version;
                         cell.version = cell.version + 1;
                         cell.value = value.clone();
-                        ver = cell.version;
                     } else {
                         collection.insert(key.clone(), Cell::new(self.client_id, value.clone()));
                     }
