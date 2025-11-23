@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::HashMap,
     net::UdpSocket,
     sync::{
         Arc, Mutex,
